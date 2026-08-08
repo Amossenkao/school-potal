@@ -1,32 +1,30 @@
-/**
- * Paste one or more documents here
- */
 {
+	"_id": {
+		"$oid": "6a74ce148425d45a8cb5f709"
+	},
 	"system": {
 		"isActive": true,
-		"host": "localhost",
-		"dbName": "uca"
+		"host": "ucaliberia.vercel.app",
+		"dbName": "ucaliberia_vercel_app"
 	},
 	"identity": {
 		"name": "Upstairs Christian Academy",
-		"shortName": "Upstairs",
+		"shortName": "Upstaris",
 		"initials": "UCA",
-		"slogan": "Excellence in Education",
+		"slogan": "Excellence In Education",
 		"studentIdPrefix": "UCA",
 		"yearFounded": 2016,
 		"firstAcademicYear": "2025-2026",
-		"currentAcademicYear": "2025-2026"
+		"currentAcademicYear": "2026-2027"
 	},
 	"branding": {
-		"themeName": "goldCircuit",
+		"themeName": "auroraForge",
 		"logoUrl": "https://res.cloudinary.com/dcalueltd/image/upload/v1753368059/school-management-system/uca/logo.png",
 		"logoUrl2": "https://res.cloudinary.com/dcalueltd/image/upload/v1753484515/school-management-system/uca/uca_logo2_kqlgdl.png",
 		"reportCardThemes": {
-			"Lower Elementary": "pureBlack",
 			"Daycare Division": "pureBlack",
-			"Upper Elementary": "pureBlack",
-			"Senior High": "midnightSapphire",
-			"Junior High": "pureBlack"
+			"Lower Elementary": "pureBlack",
+			"Upper Elementary": "roseChampagne"
 		}
 	},
 	"contact": {
@@ -36,8 +34,8 @@
 			"P.O Box 2523 Montserrado County Liberia",
 			"Email: ucacedemy2011@gmail.com"
 		],
-		"phones": ["+231 770 123 456", "+231 880 789 012"],
-		"emails": ["info@unityca.edu.lr", "admissions@unityca.edu.lr"],
+		"phones": [],
+		"emails": [],
 		"website": ""
 	},
 	"academicConfig": {
@@ -47,46 +45,60 @@
 				"min": 60,
 				"max": 100
 			},
-			"hasSummerSchool": true,
-			"givesDoublePromotion": true,
-			"promotionRules": [
-				{
-					"maxMajor": 0,
-					"maxMinor": 2
-				}
-			],
+			"hasSummerSchool": false,
+			"givesDoublePromotion": false,
 			"failureRules": [
 				{
-					"maxMajor": 0,
-					"maxMinor": 4
+					"majors": {
+						"op": "gte",
+						"value": 0
+					},
+					"minors": {
+						"op": "eq",
+						"value": 3
+					}
 				},
 				{
-					"maxMajor": 1,
-					"maxMinor": 2
+					"majors": {
+						"op": "lte",
+						"value": 1
+					},
+					"minors": {
+						"op": "lte",
+						"value": 1
+					}
 				},
 				{
-					"maxMajor": 2,
-					"maxMinor": 0
+					"majors": {
+						"op": "gte",
+						"value": 2
+					},
+					"minors": {
+						"op": "gte",
+						"value": 0
+					}
 				}
 			],
 			"summerSchoolRules": [
 				{
-					"maxMajor": 1,
-					"maxMinor": 1
-				},
-				{
-					"maxMajor": 0,
-					"maxMinor": 3
+					"majors": {
+						"op": "gte",
+						"value": 0
+					},
+					"minors": {
+						"op": "gte",
+						"value": 1
+					}
 				}
 			],
 			"majorFailuresAllowed": 0,
 			"minorFailuresAllowed": 2,
 			"oneMajorWithMinorFailuresAllowed": 1
 		},
-		"isHighSchool": false,
+		"isHighSchool": true,
 		"nextClassAfterLast": {
-			"classId": "Morning-GradeTwelveB",
-			"className": "Grade 12-B"
+			"classId": "Grade13",
+			"className": "Grade13"
 		},
 		"classLevels": {
 			"Morning": {
@@ -94,46 +106,56 @@
 					"isSelfContained": true,
 					"classes": [
 						{
-							"classId": "Morning-Nursery",
+							"classId": "morning_nursery",
 							"name": "Nursery",
 							"index": 0
 						},
 						{
-							"classId": "Morning-ABC",
+							"classId": "morning_abc",
 							"name": "ABC",
 							"index": 1
 						}
 					],
 					"subjects": [
 						{
-							"name": "Hygiene"
+							"name": "Hygiene",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Social Skills"
+							"name": "Social Skills",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Identifying Alphabets"
+							"name": "Identifying Alphabets",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Identifying Numbers"
+							"name": "Identifying Numbers",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Tracing Numbers"
+							"name": "Tracing Numbers",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Physical Education"
+							"name": "Physical Education",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Drawing"
+							"name": "Drawing",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Recognizing Words"
+							"name": "Recognizing Words",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Phonics"
+							"name": "Phonics",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Bible"
+							"name": "Bible",
+							"isMajorSubject": false
 						}
 					]
 				},
@@ -141,67 +163,79 @@
 					"isSelfContained": true,
 					"classes": [
 						{
-							"classId": "Morning-KOne",
+							"classId": "morning_k_1",
 							"name": "K 1",
 							"index": 2
 						},
 						{
-							"classId": "Morning-KTwo",
+							"classId": "morning_k_2",
 							"name": "K 2",
 							"index": 3
 						},
 						{
-							"classId": "Morning-GradeOne",
+							"classId": "morning_grade_1",
 							"name": "Grade 1",
 							"index": 4
 						},
 						{
-							"classId": "Morning-GradeTwo",
+							"classId": "morning_grade_2",
 							"name": "Grade 2",
 							"index": 5
 						},
 						{
-							"classId": "Morning-GradeThree",
+							"classId": "morning_grade_3",
 							"name": "Grade 3",
 							"index": 6
 						}
 					],
 					"subjects": [
 						{
-							"name": "Math"
+							"name": "Math",
+							"isMajorSubject": false
 						},
 						{
-							"name": "General Science"
+							"name": "General Science",
+							"isMajorSubject": false
 						},
 						{
-							"name": "English"
+							"name": "English",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Social Studies"
+							"name": "Social Studies",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Health Science"
+							"name": "Health Science",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Physical Education"
+							"name": "Physical Education",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Reading"
+							"name": "Reading",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Writing"
+							"name": "Writing",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Spelling"
+							"name": "Spelling",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Phonics"
+							"name": "Phonics",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Bible"
+							"name": "Bible",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Drawing"
+							"name": "Drawing",
+							"isMajorSubject": false
 						}
 					]
 				},
@@ -209,60 +243,73 @@
 					"isSelfContained": false,
 					"classes": [
 						{
-							"classId": "Morning-GradeFour",
+							"classId": "morning_grade_4",
 							"name": "Grade 4",
 							"index": 7
 						},
 						{
-							"classId": "Morning-GradeFive",
+							"classId": "morning_grade_5",
 							"name": "Grade 5",
 							"index": 8
 						},
 						{
-							"classId": "Morning-GradeSix",
+							"classId": "morning_grade_6",
 							"name": "Grade 6",
 							"index": 9
 						}
 					],
 					"subjects": [
 						{
-							"name": "Math"
+							"name": "Math",
+							"isMajorSubject": true
 						},
 						{
-							"name": "General Science"
+							"name": "General Science",
+							"isMajorSubject": true
 						},
 						{
-							"name": "English"
+							"name": "English",
+							"isMajorSubject": true
 						},
 						{
-							"name": "French"
+							"name": "French",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Social Studies"
+							"name": "Social Studies",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Health Science"
+							"name": "Health Science",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Physical Education"
+							"name": "Physical Education",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Computer"
+							"name": "Computer",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Reading"
+							"name": "Reading",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Writing"
+							"name": "Writing",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Spelling"
+							"name": "Spelling",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Phonics"
+							"name": "Phonics",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Bible"
+							"name": "Bible",
+							"isMajorSubject": false
 						}
 					]
 				},
@@ -270,66 +317,81 @@
 					"isSelfContained": false,
 					"classes": [
 						{
-							"classId": "Morning-GradeSeven",
+							"classId": "morning_grade_7",
 							"name": "Grade 7",
 							"index": 10
 						},
 						{
-							"classId": "Morning-GradeEight",
+							"classId": "morning_grade_8",
 							"name": "Grade 8",
 							"index": 11
 						},
 						{
-							"classId": "Morning-GradeNine",
+							"classId": "morning_grade_9",
 							"name": "Grade 9",
 							"index": 12
 						}
 					],
 					"subjects": [
 						{
-							"name": "Math"
+							"name": "Math",
+							"isMajorSubject": true
 						},
 						{
-							"name": "General Science"
+							"name": "General Science",
+							"isMajorSubject": true
 						},
 						{
-							"name": "English"
+							"name": "English",
+							"isMajorSubject": true
 						},
 						{
-							"name": "French"
+							"name": "French",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Geography"
+							"name": "Geography",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Health Science"
+							"name": "Health Science",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Physical Education"
+							"name": "Physical Education",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Computer"
+							"name": "Computer",
+							"isMajorSubject": false
 						},
 						{
-							"name": "History"
+							"name": "History",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Civics"
+							"name": "Civics",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Vocabulary"
+							"name": "Vocabulary",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Phonics"
+							"name": "Phonics",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Bible"
+							"name": "Bible",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Agriculture"
+							"name": "Agriculture",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Literature"
+							"name": "Literature",
+							"isMajorSubject": false
 						}
 					]
 				},
@@ -337,87 +399,104 @@
 					"isSelfContained": false,
 					"classes": [
 						{
-							"classId": "Morning-GradeTenA",
+							"classId": "morning_grade_10_a",
 							"name": "Grade 10-A",
 							"index": 13
 						},
 						{
-							"classId": "Morning-GradeTenB",
+							"classId": "morning_grade_10_b",
 							"name": "Grade 10-B",
+							"index": 13
+						},
+						{
+							"classId": "morning_grade_11_a",
+							"name": "Grade 11-A",
 							"index": 14
 						},
 						{
-							"classId": "Morning-GradeElevenA",
-							"name": "Grade 11-A",
+							"classId": "morning_grade_11_b",
+							"name": "Grade 11-B",
+							"index": 14
+						},
+						{
+							"classId": "morning_grade_12_a",
+							"name": "Grade 12-A",
 							"index": 15
 						},
 						{
-							"classId": "Morning-GradeElevenB",
-							"name": "Grade 11-B",
-							"index": 16
-						},
-						{
-							"classId": "Morning-GradeTwelveA",
-							"name": "Grade 12-A",
-							"index": 17
-						},
-						{
-							"classId": "Morning-GradeTwelveB",
+							"classId": "morning_grade_12_b",
 							"name": "Grade 12-B",
-							"index": 18
+							"index": 15
 						}
 					],
 					"subjects": [
 						{
-							"name": "Math"
+							"name": "Math",
+							"isMajorSubject": true
 						},
 						{
-							"name": "Biology"
+							"name": "Biology",
+							"isMajorSubject": false
 						},
 						{
-							"name": "English"
+							"name": "English",
+							"isMajorSubject": true
 						},
 						{
-							"name": "Physics"
+							"name": "Physics",
+							"isMajorSubject": true
 						},
 						{
-							"name": "Chemistry"
+							"name": "Chemistry",
+							"isMajorSubject": true
 						},
 						{
-							"name": "Computer"
+							"name": "Computer",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Economics"
+							"name": "Economics",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Government"
+							"name": "Government",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Geography"
+							"name": "Geography",
+							"isMajorSubject": true
 						},
 						{
-							"name": "History"
+							"name": "History",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Literature"
+							"name": "Literature",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Accounting"
+							"name": "Accounting",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Bible"
+							"name": "Bible",
+							"isMajorSubject": false
 						},
 						{
-							"name": "French"
+							"name": "French",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Agriculture"
+							"name": "Agriculture",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Practical"
+							"name": "Practical",
+							"isMajorSubject": false
 						},
 						{
-							"name": "R.O.T.C"
+							"name": "R.O.T.C",
+							"isMajorSubject": false
 						}
 					]
 				}
@@ -427,46 +506,56 @@
 					"isSelfContained": true,
 					"classes": [
 						{
-							"classId": "Night-Nursery",
+							"classId": "night_nursery",
 							"name": "Nursery",
-							"index": 19
+							"index": 0
 						},
 						{
-							"classId": "Night-ABC",
+							"classId": "night_abc",
 							"name": "ABC",
-							"index": 20
+							"index": 1
 						}
 					],
 					"subjects": [
 						{
-							"name": "Hygiene"
+							"name": "Hygiene",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Social Skills"
+							"name": "Social Skills",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Identifying Alphabets"
+							"name": "Identifying Alphabets",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Identifying Numbers"
+							"name": "Identifying Numbers",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Tracing Numbers"
+							"name": "Tracing Numbers",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Physical Education"
+							"name": "Physical Education",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Drawing"
+							"name": "Drawing",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Recognizing Words"
+							"name": "Recognizing Words",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Phonics"
+							"name": "Phonics",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Bible"
+							"name": "Bible",
+							"isMajorSubject": false
 						}
 					]
 				},
@@ -474,64 +563,79 @@
 					"isSelfContained": true,
 					"classes": [
 						{
-							"classId": "Night-kOne",
+							"classId": "night_k_1",
 							"name": "K 1",
-							"index": 21
+							"index": 2
 						},
 						{
-							"classId": "Night-kTwo",
+							"classId": "night_k_2",
 							"name": "K 2",
-							"index": 22
+							"index": 3
 						},
 						{
-							"classId": "Night-GradeOne",
-							"name": "Grade 1 PM",
-							"index": 23
+							"classId": "night_grade_1_pm",
+							"name": "Grade 1-PM",
+							"index": 4
 						},
 						{
-							"classId": "Night-GradeTwo",
-							"name": "Grade 2 PM",
-							"index": 24
+							"classId": "night_grade_2_pm",
+							"name": "Grade 2-PM",
+							"index": 5
 						},
 						{
-							"classId": "Night-GradeThree",
-							"name": "Grade 3 PM",
-							"index": 25
+							"classId": "night_grade_3_pm",
+							"name": "Grade 3-PM",
+							"index": 6
 						}
 					],
 					"subjects": [
 						{
-							"name": "Math"
+							"name": "Math",
+							"isMajorSubject": true
 						},
 						{
-							"name": "General Science"
+							"name": "General Science",
+							"isMajorSubject": true
 						},
 						{
-							"name": "English"
+							"name": "English",
+							"isMajorSubject": true
 						},
 						{
-							"name": "Social Studies"
+							"name": "Social Studies",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Health Science"
+							"name": "Health Science",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Reading"
+							"name": "Physical Education",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Writing"
+							"name": "Reading",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Spelling"
+							"name": "Writing",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Phonics"
+							"name": "Spelling",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Bible"
+							"name": "Phonics",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Drawing"
+							"name": "Bible",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Drawing",
+							"isMajorSubject": false
 						}
 					]
 				},
@@ -539,54 +643,73 @@
 					"isSelfContained": false,
 					"classes": [
 						{
-							"classId": "Night-GradeFour",
-							"name": "Grade 4 PM",
-							"index": 26
+							"classId": "night_grade_4_pm",
+							"name": "Grade 4-PM",
+							"index": 7
 						},
 						{
-							"classId": "Night-GradeFive",
-							"name": "Grade 5 PM",
-							"index": 27
+							"classId": "night_grade_5_pm",
+							"name": "Grade 5-PM",
+							"index": 8
 						},
 						{
-							"classId": "Night-GradeSix",
-							"name": "Grade 6 PM",
-							"index": 28
+							"classId": "night_grade_6_pm",
+							"name": "Grade 6-PM",
+							"index": 9
 						}
 					],
 					"subjects": [
 						{
-							"name": "Math"
+							"name": "Math",
+							"isMajorSubject": true
 						},
 						{
-							"name": "General Science"
+							"name": "General Science",
+							"isMajorSubject": true
 						},
 						{
-							"name": "English"
+							"name": "English",
+							"isMajorSubject": true
 						},
 						{
-							"name": "French"
+							"name": "French",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Social Studies"
+							"name": "Social Studies",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Health Science"
+							"name": "Health Science",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Reading"
+							"name": "Physical Education",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Writing"
+							"name": "Computer",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Spelling"
+							"name": "Reading",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Phonics"
+							"name": "Writing",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Bible"
+							"name": "Spelling",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Phonics",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Bible",
+							"isMajorSubject": false
 						}
 					]
 				},
@@ -594,63 +717,81 @@
 					"isSelfContained": false,
 					"classes": [
 						{
-							"classId": "Night-GradeSeven",
-							"name": "Grade 7 PM",
-							"index": 29
+							"classId": "night_grade_7_pm",
+							"name": "Grade 7-PM",
+							"index": 10
 						},
 						{
-							"classId": "Night-GradeEight",
-							"name": "Grade 8 PM",
-							"index": 30
+							"classId": "night_grade_8_pm",
+							"name": "Grade 8-PM",
+							"index": 11
 						},
 						{
-							"classId": "Night-GradeNine",
-							"name": "Grade 9 PM",
-							"index": 31
+							"classId": "night_grade_9_pm",
+							"name": "Grade 9-PM",
+							"index": 12
 						}
 					],
 					"subjects": [
 						{
-							"name": "Math"
+							"name": "Math",
+							"isMajorSubject": true
 						},
 						{
-							"name": "General Science"
+							"name": "General Science",
+							"isMajorSubject": true
 						},
 						{
-							"name": "English"
+							"name": "English",
+							"isMajorSubject": true
 						},
 						{
-							"name": "French"
+							"name": "French",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Geography"
+							"name": "Geography",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Health Science"
+							"name": "Health Science",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Computer"
+							"name": "Physical Education",
+							"isMajorSubject": false
 						},
 						{
-							"name": "History"
+							"name": "Computer",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Civics"
+							"name": "History",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Vocabulary"
+							"name": "Civics",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Phonics"
+							"name": "Vocabulary",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Bible"
+							"name": "Phonics",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Agriculture"
+							"name": "Bible",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Literature"
+							"name": "Agriculture",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Literature",
+							"isMajorSubject": false
 						}
 					]
 				},
@@ -658,69 +799,89 @@
 					"isSelfContained": false,
 					"classes": [
 						{
-							"classId": "Night-GradeTen",
-							"name": "Grade 10 PM",
-							"index": 32
+							"classId": "night_grade_10_pm",
+							"name": "Grade 10-PM",
+							"index": 13
 						},
 						{
-							"classId": "Night-GradeEleven",
-							"name": "Grade 11 PM",
-							"index": 33
+							"classId": "night_grade_11_pm",
+							"name": "Grade 11-PM",
+							"index": 14
 						},
 						{
-							"classId": "Night-GradeTwelve",
-							"name": "Grade 12 PM",
-							"index": 34
+							"classId": "night_grade_12_pm",
+							"name": "Grade 12-PM",
+							"index": 15
 						}
 					],
 					"subjects": [
 						{
-							"name": "Math"
+							"name": "Math",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Biology"
+							"name": "Biology",
+							"isMajorSubject": false
 						},
 						{
-							"name": "English"
+							"name": "English",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Physics"
+							"name": "Physics",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Chemistry"
+							"name": "Chemistry",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Computer"
+							"name": "Computer",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Economics"
+							"name": "Economics",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Government"
+							"name": "Government",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Geography"
+							"name": "Geography",
+							"isMajorSubject": false
 						},
 						{
-							"name": "History"
+							"name": "History",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Literature"
+							"name": "Literature",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Accounting"
+							"name": "Accounting",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Bible"
+							"name": "Bible",
+							"isMajorSubject": false
 						},
 						{
-							"name": "French"
+							"name": "French",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Agriculture"
+							"name": "Agriculture",
+							"isMajorSubject": false
 						},
 						{
-							"name": "Practical"
+							"name": "Practical",
+							"isMajorSubject": false
+						},
+						{
+							"name": "R.O.T.C",
+							"isMajorSubject": false
 						}
 					]
 				}
@@ -732,7 +893,7 @@
 		"sysAdmin": {
 			"name": "Amos Senkao",
 			"phone": "0776949463",
-			"email": "amossenkao@gmail.com"
+			"email": "senkao.a@outlook.com"
 		},
 		"administrativePositions": [
 			{
@@ -748,8 +909,12 @@
 				"name": "Vice Principal for Instruction"
 			},
 			{
-				"id": "propeietor",
+				"id": "proprietor",
 				"name": "Proprietor"
+			},
+			{
+				"id": "supervisor",
+				"name": "Supervisor"
 			}
 		],
 		"studentSettings": {
@@ -769,6 +934,12 @@
 						"sixth_period_exam"
 					],
 					"semesters": ["first", "second"]
+				},
+				"2026-2027": {
+					"enabled": false,
+					"yearlyReportAccess": false,
+					"periods": [],
+					"semesters": []
 				}
 			}
 		},
@@ -809,6 +980,23 @@
 					"viewMasters": {
 						"enabled": true
 					}
+				},
+				"2026-2027": {
+					"enabled": false,
+					"gradeSubmission": {
+						"enabled": false,
+						"periods": []
+					},
+					"viewGradeSubmissions": {
+						"enabled": false
+					},
+					"gradeChangeRequest": {
+						"enabled": false,
+						"periods": []
+					},
+					"viewMasters": {
+						"enabled": false
+					}
 				}
 			}
 		},
@@ -821,24 +1009,21 @@
 	},
 	"featureConfig": {
 		"enabledFeatures": [
-			"calendar_events",
-			"community",
+			"user_management",
 			"ai_chat",
-			"grade_management",
-			"academic_reports",
-			"school_settings",
-			"support_system",
 			"apps",
 			"student_attendance",
 			"teacher_attendance",
-			"online_payment",
+			"grade_management",
+			"academic_reports",
+			"calendar_events",
 			"record_payments",
-			"user_management",
 			"audit",
-			"financial_clearance",
-			"finances",
-			"diplomas",
+			"support_system",
+			"community",
+			"school_settings",
 			"attestations",
+			"diplomas",
 			"transcripts",
 			"graduation_clearance"
 		],
@@ -846,18 +1031,17 @@
 			"student": [
 				"calendar_events",
 				"academic_reports",
-				"student_attendance",
 				"community",
 				"ai_chat",
-				"user_management",
-				"finances"
+				"student_attendance"
 			],
 			"teacher": [
 				"community",
 				"calendar_events",
 				"grade_management",
 				"student_attendance",
-				"ai_chat"
+				"ai_chat",
+				"teacher_attendance"
 			],
 			"system_admin": [
 				"user_management",
@@ -865,15 +1049,14 @@
 				"grade_management",
 				"class_management",
 				"academic_reports",
-				"calendar_events",
 				"student_attendance",
 				"ai_chat",
 				"school_settings",
 				"support_system",
 				"teacher_attendance",
+				"attestations",
 				"transcripts",
 				"diplomas",
-				"attestations",
 				"graduation_clearance"
 			],
 			"parent": ["calendar_events", "academic_reports", "student_attendance"]
@@ -1056,32 +1239,39 @@
 				"isActive": true
 			},
 			{
-				"id": "scholarship-sch-1785774921753-payment",
+				"id": "scholarship-sch-1785917578084-payment",
 				"name": "Ward Scholarship Payment",
 				"category": "other",
 				"description": "Payment for the Ward Scholarship scholarship",
+				"isActive": true
+			},
+			{
+				"id": "scholarship-sch-1786105761519-payment",
+				"name": "Football/Kickball Scholarship Payment",
+				"category": "other",
+				"description": "Payment for the Football/Kickball Scholarship scholarship",
 				"isActive": true
 			}
 		],
 		"installments": [
 			{
 				"id": "morning-1st",
-				"label": "1st (During Registration)",
-				"dueWindow": ""
+				"label": "1st Installment",
+				"dueWindow": "During Registration"
 			},
 			{
 				"id": "morning-2nd",
-				"label": "2nd",
+				"label": "2nd Installment",
 				"dueWindow": "Nov 2 - Nov 9, 2026"
 			},
 			{
 				"id": "morning-3rd",
-				"label": "3rd",
+				"label": "3rd Installment",
 				"dueWindow": "Feb 8 - Feb 19, 2027"
 			},
 			{
 				"id": "morning-4th",
-				"label": "4th",
+				"label": "4th Installment",
 				"dueWindow": "Mar 22 - Apr 5, 2027"
 			}
 		],
@@ -1115,7 +1305,7 @@
 		],
 		"feeSchedules": [
 			{
-				"academicYear": "2025-2026",
+				"academicYear": "2026-2027",
 				"sessionFeeSchedules": [
 					{
 						"sessionName": "Morning",
@@ -1125,25 +1315,25 @@
 								"name": "All Classes",
 								"appliesToClassIds": [
 									"Morning-Daycare",
-									"Morning-Nursery",
-									"Morning-KOne",
-									"Morning-KTwo",
-									"Morning-GradeOne",
-									"Morning-GradeTwo",
-									"Morning-GradeThree",
-									"Morning-GradeFour",
-									"Morning-GradeFive",
-									"Morning-GradeSix",
-									"Morning-GradeSeven",
-									"Morning-GradeEight",
-									"Morning-GradeNine",
-									"Morning-GradeTenA",
-									"Morning-GradeTenB",
-									"Morning-GradeElevenA",
-									"Morning-GradeElevenB",
-									"Morning-GradeTwelveA",
-									"Morning-GradeTwelveB",
-									"Morning-ABC"
+									"morning_nursery",
+									"morning_k_1",
+									"morning_k_2",
+									"morning_grade_1",
+									"morning_grade_2",
+									"morning_grade_3",
+									"morning_grade_4",
+									"morning_grade_5",
+									"morning_grade_6",
+									"morning_grade_7",
+									"morning_grade_8",
+									"morning_grade_9",
+									"morning_grade_10_a",
+									"morning_grade_10_b",
+									"morning_grade_11_a",
+									"morning_grade_11_b",
+									"morning_grade_12_a",
+									"morning_grade_12_b",
+									"morning_abc"
 								],
 								"scheduledFees": [
 									{
@@ -1242,7 +1432,7 @@
 											"amount": 6000,
 											"currency": "LRD"
 										},
-										"isRequired": true,
+										"isRequired": false,
 										"installments": [
 											{
 												"installmentId": "morning-2nd",
@@ -1258,22 +1448,22 @@
 								"name": "Grade 1 – 11 ID Card",
 								"appliesToClassIds": [
 									"Morning-Daycare",
-									"Morning-Nursery",
-									"Morning-KOne",
-									"Morning-KTwo",
-									"Morning-GradeOne",
-									"Morning-GradeTwo",
-									"Morning-GradeThree",
-									"Morning-GradeFour",
-									"Morning-GradeFive",
-									"Morning-GradeSix",
-									"Morning-GradeSeven",
-									"Morning-GradeEight",
-									"Morning-GradeNine",
-									"Morning-GradeTenA",
-									"Morning-GradeTenB",
-									"Morning-GradeElevenA",
-									"Morning-GradeElevenB"
+									"morning_nursery",
+									"morning_k_1",
+									"morning_k_2",
+									"morning_grade_1",
+									"morning_grade_2",
+									"morning_grade_3",
+									"morning_grade_4",
+									"morning_grade_5",
+									"morning_grade_6",
+									"morning_grade_7",
+									"morning_grade_8",
+									"morning_grade_9",
+									"morning_grade_10_a",
+									"morning_grade_10_b",
+									"morning_grade_11_a",
+									"morning_grade_11_b"
 								],
 								"scheduledFees": [
 									{
@@ -1297,21 +1487,21 @@
 								"id": "morning-grade4-12",
 								"name": "Grade 4 – 12",
 								"appliesToClassIds": [
-									"Morning-GradeOne",
-									"Morning-GradeTwo",
-									"Morning-GradeThree",
-									"Morning-GradeFour",
-									"Morning-GradeFive",
-									"Morning-GradeSix",
-									"Morning-GradeSeven",
-									"Morning-GradeEight",
-									"Morning-GradeNine",
-									"Morning-GradeTenA",
-									"Morning-GradeTenB",
-									"Morning-GradeElevenA",
-									"Morning-GradeElevenB",
-									"Morning-GradeTwelveA",
-									"Morning-GradeTwelveB"
+									"morning_grade_1",
+									"morning_grade_2",
+									"morning_grade_3",
+									"morning_grade_4",
+									"morning_grade_5",
+									"morning_grade_6",
+									"morning_grade_7",
+									"morning_grade_8",
+									"morning_grade_9",
+									"morning_grade_10_a",
+									"morning_grade_10_b",
+									"morning_grade_11_a",
+									"morning_grade_11_b",
+									"morning_grade_12_a",
+									"morning_grade_12_b"
 								],
 								"scheduledFees": [
 									{
@@ -1335,12 +1525,12 @@
 								"id": "morning-grade10-12",
 								"name": "Grade 10 – 12",
 								"appliesToClassIds": [
-									"Morning-GradeTenA",
-									"Morning-GradeTenB",
-									"Morning-GradeElevenA",
-									"Morning-GradeElevenB",
-									"Morning-GradeTwelveA",
-									"Morning-GradeTwelveB"
+									"morning_grade_10_a",
+									"morning_grade_10_b",
+									"morning_grade_11_a",
+									"morning_grade_11_b",
+									"morning_grade_12_a",
+									"morning_grade_12_b"
 								],
 								"scheduledFees": [
 									{
@@ -1365,13 +1555,13 @@
 								"name": "Nursery – Grade 3",
 								"appliesToClassIds": [
 									"Morning-Daycare",
-									"Morning-Nursery",
-									"Morning-KOne",
-									"Morning-KTwo",
-									"Morning-GradeOne",
-									"Morning-GradeTwo",
-									"Morning-GradeThree",
-									"Morning-ABC"
+									"morning_nursery",
+									"morning_k_1",
+									"morning_k_2",
+									"morning_grade_1",
+									"morning_grade_2",
+									"morning_grade_3",
+									"morning_abc"
 								],
 								"scheduledFees": [
 									{
@@ -1484,7 +1674,7 @@
 							{
 								"id": "morning-grade4-5",
 								"name": "Grade 4 – 5",
-								"appliesToClassIds": ["Morning-GradeFour", "Morning-GradeFive"],
+								"appliesToClassIds": ["morning_grade_4", "morning_grade_5"],
 								"scheduledFees": [
 									{
 										"feeId": "tuition",
@@ -1567,14 +1757,14 @@
 											"amount": 4000,
 											"currency": "LRD"
 										},
-										"isRequired": true,
+										"isRequired": false,
 										"installments": [
 											{
 												"installmentId": "morning-1st",
 												"percentage": 1
 											}
 										],
-										"applicableStudentGroupIds": ["new-students"]
+										"applicableStudentGroupIds": []
 									},
 									{
 										"feeId": "wednesday-dress",
@@ -1582,7 +1772,7 @@
 											"amount": 2000,
 											"currency": "LRD"
 										},
-										"isRequired": true,
+										"isRequired": false,
 										"installments": [
 											{
 												"installmentId": "morning-1st",
@@ -1596,7 +1786,7 @@
 							{
 								"id": "morning-grade6",
 								"name": "Grade 6",
-								"appliesToClassIds": ["Morning-GradeSix"],
+								"appliesToClassIds": ["morning_grade_6"],
 								"scheduledFees": [
 									{
 										"feeId": "tuition",
@@ -1694,7 +1884,7 @@
 											"amount": 2000,
 											"currency": "LRD"
 										},
-										"isRequired": true,
+										"isRequired": false,
 										"installments": [
 											{
 												"installmentId": "morning-1st",
@@ -1709,14 +1899,14 @@
 											"amount": 4000,
 											"currency": "LRD"
 										},
-										"isRequired": true,
+										"isRequired": false,
 										"installments": [
 											{
 												"installmentId": "morning-1st",
 												"percentage": 1
 											}
 										],
-										"applicableStudentGroupIds": ["new-students"]
+										"applicableStudentGroupIds": []
 									},
 									{
 										"feeId": "wednesday-dress",
@@ -1724,7 +1914,7 @@
 											"amount": 2000,
 											"currency": "LRD"
 										},
-										"isRequired": true,
+										"isRequired": false,
 										"installments": [
 											{
 												"installmentId": "morning-1st",
@@ -1738,7 +1928,7 @@
 							{
 								"id": "morning-grade7",
 								"name": "Grade 7",
-								"appliesToClassIds": ["Morning-GradeSeven"],
+								"appliesToClassIds": ["morning_grade_7"],
 								"scheduledFees": [
 									{
 										"feeId": "tuition",
@@ -1821,14 +2011,14 @@
 											"amount": 4700,
 											"currency": "LRD"
 										},
-										"isRequired": true,
+										"isRequired": false,
 										"installments": [
 											{
 												"installmentId": "morning-1st",
 												"percentage": 1
 											}
 										],
-										"applicableStudentGroupIds": ["new-students"]
+										"applicableStudentGroupIds": []
 									},
 									{
 										"feeId": "wednesday-dress",
@@ -1836,7 +2026,7 @@
 											"amount": 2000,
 											"currency": "LRD"
 										},
-										"isRequired": true,
+										"isRequired": false,
 										"installments": [
 											{
 												"installmentId": "morning-1st",
@@ -1850,7 +2040,7 @@
 							{
 								"id": "morning-grade8",
 								"name": "Grade 8",
-								"appliesToClassIds": ["Morning-GradeEight"],
+								"appliesToClassIds": ["morning_grade_8"],
 								"scheduledFees": [
 									{
 										"feeId": "tuition",
@@ -1933,14 +2123,14 @@
 											"amount": 4700,
 											"currency": "LRD"
 										},
-										"isRequired": true,
+										"isRequired": false,
 										"installments": [
 											{
 												"installmentId": "morning-1st",
 												"percentage": 1
 											}
 										],
-										"applicableStudentGroupIds": ["new-students"]
+										"applicableStudentGroupIds": []
 									},
 									{
 										"feeId": "wednesday-dress",
@@ -1948,7 +2138,7 @@
 											"amount": 2000,
 											"currency": "LRD"
 										},
-										"isRequired": true,
+										"isRequired": false,
 										"installments": [
 											{
 												"installmentId": "morning-1st",
@@ -1962,7 +2152,7 @@
 							{
 								"id": "morning-grade9",
 								"name": "Grade 9",
-								"appliesToClassIds": ["Morning-GradeNine"],
+								"appliesToClassIds": ["morning_grade_9"],
 								"scheduledFees": [
 									{
 										"feeId": "tuition",
@@ -2060,7 +2250,7 @@
 											"amount": 2500,
 											"currency": "LRD"
 										},
-										"isRequired": true,
+										"isRequired": false,
 										"installments": [
 											{
 												"installmentId": "morning-1st",
@@ -2075,14 +2265,14 @@
 											"amount": 4700,
 											"currency": "LRD"
 										},
-										"isRequired": true,
+										"isRequired": false,
 										"installments": [
 											{
 												"installmentId": "morning-1st",
 												"percentage": 1
 											}
 										],
-										"applicableStudentGroupIds": ["new-students"]
+										"applicableStudentGroupIds": []
 									},
 									{
 										"feeId": "wednesday-dress",
@@ -2090,7 +2280,7 @@
 											"amount": 2000,
 											"currency": "LRD"
 										},
-										"isRequired": true,
+										"isRequired": false,
 										"installments": [
 											{
 												"installmentId": "morning-1st",
@@ -2104,7 +2294,10 @@
 							{
 								"id": "morning-grade10",
 								"name": "Grade 10",
-								"appliesToClassIds": ["Morning-GradeTenA", "Morning-GradeTenB"],
+								"appliesToClassIds": [
+									"morning_grade_10_a",
+									"morning_grade_10_b"
+								],
 								"scheduledFees": [
 									{
 										"feeId": "tuition",
@@ -2187,14 +2380,14 @@
 											"amount": 5000,
 											"currency": "LRD"
 										},
-										"isRequired": true,
+										"isRequired": false,
 										"installments": [
 											{
 												"installmentId": "morning-1st",
 												"percentage": 1
 											}
 										],
-										"applicableStudentGroupIds": ["new-students"]
+										"applicableStudentGroupIds": []
 									},
 									{
 										"feeId": "wednesday-dress",
@@ -2202,7 +2395,7 @@
 											"amount": 2000,
 											"currency": "LRD"
 										},
-										"isRequired": true,
+										"isRequired": false,
 										"installments": [
 											{
 												"installmentId": "morning-1st",
@@ -2217,8 +2410,8 @@
 								"id": "morning-grade11",
 								"name": "Grade 11",
 								"appliesToClassIds": [
-									"Morning-GradeElevenA",
-									"Morning-GradeElevenB"
+									"morning_grade_11_a",
+									"morning_grade_11_b"
 								],
 								"scheduledFees": [
 									{
@@ -2332,14 +2525,14 @@
 											"amount": 5000,
 											"currency": "LRD"
 										},
-										"isRequired": true,
+										"isRequired": false,
 										"installments": [
 											{
 												"installmentId": "morning-1st",
 												"percentage": 1
 											}
 										],
-										"applicableStudentGroupIds": ["new-students"]
+										"applicableStudentGroupIds": []
 									},
 									{
 										"feeId": "wednesday-dress",
@@ -2347,7 +2540,7 @@
 											"amount": 2000,
 											"currency": "LRD"
 										},
-										"isRequired": true,
+										"isRequired": false,
 										"installments": [
 											{
 												"installmentId": "morning-1st",
@@ -2362,8 +2555,8 @@
 								"id": "morning-grade12",
 								"name": "Grade 12",
 								"appliesToClassIds": [
-									"Morning-GradeTwelveA",
-									"Morning-GradeTwelveB"
+									"morning_grade_12_a",
+									"morning_grade_12_b"
 								],
 								"scheduledFees": [
 									{
@@ -2462,7 +2655,7 @@
 											"amount": 4000,
 											"currency": "LRD"
 										},
-										"isRequired": true,
+										"isRequired": false,
 										"installments": [
 											{
 												"installmentId": "morning-1st",
@@ -2477,7 +2670,7 @@
 											"amount": 10500,
 											"currency": "LRD"
 										},
-										"isRequired": true,
+										"isRequired": false,
 										"installments": [
 											{
 												"installmentId": "morning-1st",
@@ -2492,7 +2685,7 @@
 											"amount": 4000,
 											"currency": "LRD"
 										},
-										"isRequired": true,
+										"isRequired": false,
 										"installments": [
 											{
 												"installmentId": "morning-1st",
@@ -2507,7 +2700,7 @@
 											"amount": 2000,
 											"currency": "LRD"
 										},
-										"isRequired": true,
+										"isRequired": false,
 										"installments": [
 											{
 												"installmentId": "morning-1st",
@@ -2519,59 +2712,64 @@
 								]
 							},
 							{
-								"id": "fg-scholarships-1785774933147-o6f58",
+								"id": "fg-scholarships-1785917594725-q9if3",
 								"name": "Scholarships",
 								"appliesToClassIds": [
-									"Morning-Nursery",
-									"Morning-ABC",
-									"Morning-KOne",
-									"Morning-KTwo",
-									"Morning-GradeOne",
-									"Morning-GradeTwo",
-									"Morning-GradeThree",
-									"Morning-GradeFour",
-									"Morning-GradeFive",
-									"Morning-GradeSix",
-									"Morning-GradeSeven",
-									"Morning-GradeEight",
-									"Morning-GradeNine",
-									"Morning-GradeTenA",
-									"Morning-GradeTenB",
-									"Morning-GradeElevenA",
-									"Morning-GradeElevenB",
-									"Morning-GradeTwelveA",
-									"Morning-GradeTwelveB",
-									"Night-Nursery",
-									"Night-ABC",
-									"Night-kOne",
-									"Night-kTwo",
-									"Night-GradeOne",
-									"Night-GradeTwo",
-									"Night-GradeThree",
-									"Night-GradeFour",
-									"Night-GradeFive",
-									"Night-GradeSix",
-									"Night-GradeSeven",
-									"Night-GradeEight",
-									"Night-GradeNine",
-									"Night-GradeTen",
-									"Night-GradeEleven",
-									"Night-GradeTwelve"
+									"morning_nursery",
+									"morning_abc",
+									"morning_k_1",
+									"morning_k_2",
+									"morning_grade_1",
+									"morning_grade_2",
+									"morning_grade_3",
+									"morning_grade_4",
+									"morning_grade_5",
+									"morning_grade_6",
+									"morning_grade_7",
+									"morning_grade_8",
+									"morning_grade_9",
+									"morning_grade_10_a",
+									"morning_grade_10_b",
+									"morning_grade_11_a",
+									"morning_grade_11_b",
+									"morning_grade_12_a",
+									"morning_grade_12_b",
+									"night_nursery",
+									"night_abc",
+									"night_k_1",
+									"night_k_2",
+									"night_grade_1_pm",
+									"night_grade_2_pm",
+									"night_grade_3_pm",
+									"night_grade_4_pm",
+									"night_grade_5_pm",
+									"night_grade_6_pm",
+									"night_grade_7_pm",
+									"night_grade_8_pm",
+									"night_grade_9_pm",
+									"night_grade_10_pm",
+									"night_grade_11_pm",
+									"night_grade_12_pm"
 								],
 								"scheduledFees": [
 									{
-										"feeId": "scholarship-sch-1785774921753-payment",
+										"feeId": "scholarship-sch-1785917578084-payment",
 										"amount": {
 											"amount": 11500,
 											"currency": "LRD"
 										},
 										"isRequired": true,
-										"installments": [
-											{
-												"installmentId": "morning-3rd",
-												"percentage": 1
-											}
-										],
+										"installments": [],
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "scholarship-sch-1786105761519-payment",
+										"amount": {
+											"amount": 8000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"installments": [],
 										"applicableStudentGroupIds": []
 									}
 								]
@@ -2585,22 +2783,22 @@
 								"id": "night-all-classes",
 								"name": "All Classes",
 								"appliesToClassIds": [
-									"Night-kOne",
-									"Night-kTwo",
-									"Night-GradeOne",
-									"Night-GradeTwo",
-									"Night-GradeThree",
-									"Night-GradeFour",
-									"Night-GradeFive",
-									"Night-GradeSix",
-									"Night-GradeSeven",
-									"Night-GradeEight",
-									"Night-GradeNine",
-									"Night-GradeTen",
-									"Night-GradeEleven",
-									"Night-GradeTwelve",
-									"Night-Nursery",
-									"Night-ABC"
+									"night_k_1",
+									"night_k_2",
+									"night_grade_1_pm",
+									"night_grade_2_pm",
+									"night_grade_3_pm",
+									"night_grade_4_pm",
+									"night_grade_5_pm",
+									"night_grade_6_pm",
+									"night_grade_7_pm",
+									"night_grade_8_pm",
+									"night_grade_9_pm",
+									"night_grade_10_pm",
+									"night_grade_11_pm",
+									"night_grade_12_pm",
+									"night_nursery",
+									"night_abc"
 								],
 								"scheduledFees": [
 									{
@@ -2612,7 +2810,7 @@
 										"isRequired": true,
 										"installments": [
 											{
-												"installmentId": "night-1st",
+												"installmentId": "morning-1st",
 												"percentage": 1
 											}
 										],
@@ -2627,7 +2825,7 @@
 										"isRequired": true,
 										"installments": [
 											{
-												"installmentId": "night-1st",
+												"installmentId": "morning-1st",
 												"percentage": 1
 											}
 										],
@@ -2642,7 +2840,7 @@
 										"isRequired": false,
 										"installments": [
 											{
-												"installmentId": "night-1st",
+												"installmentId": "morning-1st",
 												"percentage": 1
 											}
 										],
@@ -2657,7 +2855,7 @@
 										"isRequired": true,
 										"installments": [
 											{
-												"installmentId": "night-2nd",
+												"installmentId": "morning-2nd",
 												"percentage": 1
 											}
 										],
@@ -2672,7 +2870,7 @@
 										"isRequired": true,
 										"installments": [
 											{
-												"installmentId": "night-2nd",
+												"installmentId": "morning-2nd",
 												"percentage": 1
 											}
 										],
@@ -2684,12 +2882,12 @@
 								"id": "night-grade7-12",
 								"name": "Grade 7 – 12",
 								"appliesToClassIds": [
-									"Night-GradeSeven",
-									"Night-GradeEight",
-									"Night-GradeNine",
-									"Night-GradeTen",
-									"Night-GradeEleven",
-									"Night-GradeTwelve"
+									"night_grade_7_pm",
+									"night_grade_8_pm",
+									"night_grade_9_pm",
+									"night_grade_10_pm",
+									"night_grade_11_pm",
+									"night_grade_12_pm"
 								],
 								"scheduledFees": [
 									{
@@ -2701,7 +2899,7 @@
 										"isRequired": true,
 										"installments": [
 											{
-												"installmentId": "night-3rd",
+												"installmentId": "morning-3rd",
 												"percentage": 1
 											}
 										],
@@ -2713,14 +2911,14 @@
 								"id": "night-grade1-6",
 								"name": "Grade 1 – 6",
 								"appliesToClassIds": [
-									"Night-kOne",
-									"Night-kTwo",
-									"Night-GradeOne",
-									"Night-GradeTwo",
-									"Night-GradeThree",
-									"Night-GradeFour",
-									"Night-GradeFive",
-									"Night-GradeSix"
+									"night_k_1",
+									"night_k_2",
+									"night_grade_1_pm",
+									"night_grade_2_pm",
+									"night_grade_3_pm",
+									"night_grade_4_pm",
+									"night_grade_5_pm",
+									"night_grade_6_pm"
 								],
 								"scheduledFees": [
 									{
@@ -2732,7 +2930,7 @@
 										"isRequired": true,
 										"installments": [
 											{
-												"installmentId": "night-1st",
+												"installmentId": "morning-1st",
 												"percentage": 1
 											}
 										],
@@ -2747,7 +2945,7 @@
 										"isRequired": true,
 										"installments": [
 											{
-												"installmentId": "night-1st",
+												"installmentId": "morning-1st",
 												"percentage": 1
 											}
 										],
@@ -2762,7 +2960,7 @@
 										"isRequired": true,
 										"installments": [
 											{
-												"installmentId": "night-2nd",
+												"installmentId": "morning-2nd",
 												"percentage": 1
 											}
 										],
@@ -2777,7 +2975,7 @@
 										"isRequired": false,
 										"installments": [
 											{
-												"installmentId": "night-1st",
+												"installmentId": "morning-1st",
 												"percentage": 1
 											}
 										],
@@ -2789,9 +2987,9 @@
 								"id": "night-grade7-9",
 								"name": "Grade 7 – 9",
 								"appliesToClassIds": [
-									"Night-GradeSeven",
-									"Night-GradeEight",
-									"Night-GradeNine"
+									"night_grade_7_pm",
+									"night_grade_8_pm",
+									"night_grade_9_pm"
 								],
 								"scheduledFees": [
 									{
@@ -2803,7 +3001,7 @@
 										"isRequired": true,
 										"installments": [
 											{
-												"installmentId": "night-1st",
+												"installmentId": "morning-1st",
 												"percentage": 1
 											}
 										],
@@ -2818,7 +3016,7 @@
 										"isRequired": true,
 										"installments": [
 											{
-												"installmentId": "night-1st",
+												"installmentId": "morning-1st",
 												"percentage": 1
 											}
 										],
@@ -2833,7 +3031,7 @@
 										"isRequired": true,
 										"installments": [
 											{
-												"installmentId": "night-2nd",
+												"installmentId": "morning-2nd",
 												"percentage": 1
 											}
 										],
@@ -2848,7 +3046,7 @@
 										"isRequired": false,
 										"installments": [
 											{
-												"installmentId": "night-1st",
+												"installmentId": "morning-1st",
 												"percentage": 1
 											}
 										],
@@ -2859,7 +3057,7 @@
 							{
 								"id": "night-grade10-11",
 								"name": "Grade 10 – 11",
-								"appliesToClassIds": ["Night-GradeTen", "Night-GradeEleven"],
+								"appliesToClassIds": ["night_grade_10_pm", "night_grade_11_pm"],
 								"scheduledFees": [
 									{
 										"feeId": "tuition",
@@ -2870,7 +3068,7 @@
 										"isRequired": true,
 										"installments": [
 											{
-												"installmentId": "night-1st",
+												"installmentId": "morning-1st",
 												"percentage": 1
 											}
 										],
@@ -2885,7 +3083,7 @@
 										"isRequired": true,
 										"installments": [
 											{
-												"installmentId": "night-1st",
+												"installmentId": "morning-1st",
 												"percentage": 1
 											}
 										],
@@ -2900,7 +3098,7 @@
 										"isRequired": true,
 										"installments": [
 											{
-												"installmentId": "night-2nd",
+												"installmentId": "morning-2nd",
 												"percentage": 1
 											}
 										],
@@ -2911,7 +3109,7 @@
 							{
 								"id": "night-grade12",
 								"name": "Grade 12",
-								"appliesToClassIds": ["Night-GradeTwelve"],
+								"appliesToClassIds": ["night_grade_12_pm"],
 								"scheduledFees": [
 									{
 										"feeId": "tuition",
@@ -2922,7 +3120,7 @@
 										"isRequired": true,
 										"installments": [
 											{
-												"installmentId": "night-1st",
+												"installmentId": "morning-1st",
 												"percentage": 1
 											}
 										],
@@ -2937,7 +3135,7 @@
 										"isRequired": true,
 										"installments": [
 											{
-												"installmentId": "night-1st",
+												"installmentId": "morning-1st",
 												"percentage": 1
 											}
 										],
@@ -2952,7 +3150,7 @@
 										"isRequired": true,
 										"installments": [
 											{
-												"installmentId": "night-2nd",
+												"installmentId": "morning-2nd",
 												"percentage": 1
 											}
 										],
@@ -2967,7 +3165,7 @@
 										"isRequired": false,
 										"installments": [
 											{
-												"installmentId": "night-1st",
+												"installmentId": "morning-1st",
 												"percentage": 1
 											}
 										],
@@ -2982,7 +3180,7 @@
 										"isRequired": false,
 										"installments": [
 											{
-												"installmentId": "night-1st",
+												"installmentId": "morning-1st",
 												"percentage": 1
 											}
 										],
@@ -2997,7 +3195,7 @@
 										"isRequired": false,
 										"installments": [
 											{
-												"installmentId": "night-1st",
+												"installmentId": "morning-1st",
 												"percentage": 1
 											}
 										],
@@ -3006,59 +3204,64 @@
 								]
 							},
 							{
-								"id": "fg-scholarships-1785774933148-h6ir9",
+								"id": "fg-scholarships-1785917594725-n2ewo",
 								"name": "Scholarships",
 								"appliesToClassIds": [
-									"Morning-Nursery",
-									"Morning-ABC",
-									"Morning-KOne",
-									"Morning-KTwo",
-									"Morning-GradeOne",
-									"Morning-GradeTwo",
-									"Morning-GradeThree",
-									"Morning-GradeFour",
-									"Morning-GradeFive",
-									"Morning-GradeSix",
-									"Morning-GradeSeven",
-									"Morning-GradeEight",
-									"Morning-GradeNine",
-									"Morning-GradeTenA",
-									"Morning-GradeTenB",
-									"Morning-GradeElevenA",
-									"Morning-GradeElevenB",
-									"Morning-GradeTwelveA",
-									"Morning-GradeTwelveB",
-									"Night-Nursery",
-									"Night-ABC",
-									"Night-kOne",
-									"Night-kTwo",
-									"Night-GradeOne",
-									"Night-GradeTwo",
-									"Night-GradeThree",
-									"Night-GradeFour",
-									"Night-GradeFive",
-									"Night-GradeSix",
-									"Night-GradeSeven",
-									"Night-GradeEight",
-									"Night-GradeNine",
-									"Night-GradeTen",
-									"Night-GradeEleven",
-									"Night-GradeTwelve"
+									"morning_nursery",
+									"morning_abc",
+									"morning_k_1",
+									"morning_k_2",
+									"morning_grade_1",
+									"morning_grade_2",
+									"morning_grade_3",
+									"morning_grade_4",
+									"morning_grade_5",
+									"morning_grade_6",
+									"morning_grade_7",
+									"morning_grade_8",
+									"morning_grade_9",
+									"morning_grade_10_a",
+									"morning_grade_10_b",
+									"morning_grade_11_a",
+									"morning_grade_11_b",
+									"morning_grade_12_a",
+									"morning_grade_12_b",
+									"night_nursery",
+									"night_abc",
+									"night_k_1",
+									"night_k_2",
+									"night_grade_1_pm",
+									"night_grade_2_pm",
+									"night_grade_3_pm",
+									"night_grade_4_pm",
+									"night_grade_5_pm",
+									"night_grade_6_pm",
+									"night_grade_7_pm",
+									"night_grade_8_pm",
+									"night_grade_9_pm",
+									"night_grade_10_pm",
+									"night_grade_11_pm",
+									"night_grade_12_pm"
 								],
 								"scheduledFees": [
 									{
-										"feeId": "scholarship-sch-1785774921753-payment",
+										"feeId": "scholarship-sch-1785917578084-payment",
 										"amount": {
 											"amount": 11500,
 											"currency": "LRD"
 										},
 										"isRequired": true,
-										"installments": [
-											{
-												"installmentId": "morning-3rd",
-												"percentage": 1
-											}
-										],
+										"installments": [],
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "scholarship-sch-1786105761519-payment",
+										"amount": {
+											"amount": 8000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"installments": [],
 										"applicableStudentGroupIds": []
 									}
 								]
@@ -3068,19 +3271,24 @@
 				],
 				"scholarships": [
 					{
-						"id": "sch-1785774921753",
+						"id": "sch-1785917578084",
 						"name": "Ward Scholarship",
 						"description": "",
 						"scholarshipType": "fixedPayment",
 						"amount": 11500,
 						"currency": "LRD",
+						"appliesTo": [],
+						"installments": []
+					},
+					{
+						"id": "sch-1786105761519",
+						"name": "Football/Kickball Scholarship",
+						"description": "",
+						"scholarshipType": "fixedPayment",
+						"amount": 8000,
+						"currency": "LRD",
 						"appliesTo": ["tuition", "registration", "requirements"],
-						"installments": [
-							{
-								"installmentId": "morning-3rd",
-								"percentage": 1
-							}
-						]
+						"installments": []
 					}
 				]
 			},
@@ -3097,10 +3305,28 @@
 					}
 				],
 				"scholarships": []
+			},
+			{
+				"academicYear": "2025-2026",
+				"sessionFeeSchedules": [
+					{
+						"sessionName": "Morning",
+						"feeGroups": []
+					},
+					{
+						"sessionName": "Night",
+						"feeGroups": []
+					}
+				],
+				"scholarships": []
 			}
 		]
 	},
+	"createdAt": {
+		"$date": "2026-08-06T18:10:28.688Z"
+	},
 	"updatedAt": {
-		"$date": "2026-08-08T14:34:50.085Z"
-	}
+		"$date": "2026-08-08T16:18:17.572Z"
+	},
+	"__v": 0
 }

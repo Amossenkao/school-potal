@@ -164,18 +164,14 @@ const GradingSettingsSchema = new Schema(
 				{ majors: { op: 'gte', value: 1 }, minors: { op: 'gte', value: 1 } },
 			],
 		},
-		// Legacy threshold fields kept for backward compatibility
-		majorFailuresAllowed: { type: Number, default: 0 },
-		minorFailuresAllowed: { type: Number, default: 2 },
-		oneMajorWithMinorFailuresAllowed: { type: Number, default: 1 },
 	},
 	{ _id: false },
 );
 
 const NextClassAfterLastSchema = new Schema(
 	{
-		classId: { type: String, required: true, trim: true },
-		className: { type: String, required: true, trim: true },
+		classId: { type: String, trim: true, default: '' },
+		className: { type: String, trim: true, default: '' },
 	},
 	{ _id: false },
 );

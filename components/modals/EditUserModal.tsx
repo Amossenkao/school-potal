@@ -491,7 +491,21 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 				cls.index > currentIndex &&
 				normalizeClassName(cls.name) !== currentBase,
 		);
-		if (higher.length > 0) return higher;
+		// A student can only advance as many classes as the academic years they
+		// are behind the school's current year (e.g. a student whose most recent
+		// year is 2025-2026 in a school currently in 2026-2027 moves up exactly
+		// one class; two years behind allows two classes). Students with no
+		// academic history keep the full list of higher classes.
+		const latestStart = getLatestAcademicYearStartForUser(user);
+		const currentStart = getAcademicYearStart(getCurrentAcademicYear());
+		const steps =
+			latestStart !== null && currentStart !== null
+				? Math.max(1, currentStart - latestStart)
+				: Number.MAX_SAFE_INTEGER;
+		const eligible = higher.filter(
+			(cls) => cls.index <= currentIndex + steps,
+		);
+		if (eligible.length > 0) return eligible;
 		// Last class. Only a high school's terminal class cannot be promoted from.
 		if (schoolProfile?.academicConfig?.isHighSchool) return [];
 		const nextClassAfterLast = schoolProfile?.academicConfig?.nextClassAfterLast;

@@ -150,11 +150,6 @@ export interface GradingSettings {
 	// hasSummerSchool is true). Students matching no rule at all are promoted.
 	readonly failureRules: readonly GradingRule[];
 	readonly summerSchoolRules: readonly GradingRule[];
-	// Legacy threshold fields — kept for backward compatibility with profiles
-	// saved before the rule arrays existed. New profiles should use the arrays.
-	readonly majorFailuresAllowed?: number;
-	readonly minorFailuresAllowed?: number;
-	readonly oneMajorWithMinorFailuresAllowed?: number;
 }
 
 // ============================================================================

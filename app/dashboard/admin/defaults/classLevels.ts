@@ -195,20 +195,25 @@ export const DEFAULT_GRADING_SETTINGS = {
 	summerSchoolRules: [
 		{ majors: { op: 'gte', value: 1 }, minors: { op: 'gte', value: 1 } },
 	],
-	majorFailuresAllowed: 0,
-	minorFailuresAllowed: 2,
-	oneMajorWithMinorFailuresAllowed: 1,
 };
 
 // ---------------------------------------------------------------------------
 // Normalize grading settings to always carry the two rule arrays. Each rule is
 // normalized to the per-count comparison shape ({ majors, minors }). Legacy
 // rules stored as { maxMajor, maxMinor } are interpreted as "at least" bands,
-// and profiles saved before any rule arrays existed are mapped from the legacy
-// threshold fields. Existing comparison-shape rules are kept as-is.
+// and profiles saved before any rule arrays existed fall back to the default
+// rules. Existing comparison-shape rules are kept as-is.
 // ---------------------------------------------------------------------------
 
 const GRADING_RULE_OPS: GradingRuleOperator[] = ['gte', 'gt', 'lte', 'lt', 'eq'];
+
+const DEFAULT_FAILURE_RULES: GradingRule[] = [
+	{ majors: { op: 'gte', value: 2 }, minors: { op: 'gte', value: 0 } },
+];
+
+const DEFAULT_SUMMER_SCHOOL_RULES: GradingRule[] = [
+	{ majors: { op: 'gte', value: 1 }, minors: { op: 'gte', value: 1 } },
+];
 
 const toGradingRule = (rule: any): GradingRule | null => {
 	if (!rule || typeof rule !== 'object') return null;
@@ -247,17 +252,6 @@ export function migrateLegacyGradingRules(settings: any): any {
 		Array.isArray(list) ? list.map(toGradingRule).filter((r): r is GradingRule => r !== null) : [];
 	const failureRules = pickRule(src.failureRules);
 	const summerSchoolRules = pickRule(src.summerSchoolRules);
-	const majorFailuresAllowed = Number.isFinite(Number(src.majorFailuresAllowed))
-		? Math.max(0, Number(src.majorFailuresAllowed))
-		: 0;
-	const minorFailuresAllowed = Number.isFinite(Number(src.minorFailuresAllowed))
-		? Math.max(0, Number(src.minorFailuresAllowed))
-		: 2;
-	const oneMajorWithMinorFailuresAllowed = Number.isFinite(
-		Number(src.oneMajorWithMinorFailuresAllowed),
-	)
-		? Math.max(0, Number(src.oneMajorWithMinorFailuresAllowed))
-		: 1;
 	return {
 		passMark: Number.isFinite(Number(src.passMark)) ? Number(src.passMark) : 50,
 		gradeScale: {
@@ -270,22 +264,11 @@ export function migrateLegacyGradingRules(settings: any): any {
 		},
 		hasSummerSchool: src.hasSummerSchool === true,
 		givesDoublePromotion: src.givesDoublePromotion === true,
-		failureRules:
-			failureRules.length > 0
-				? failureRules
-				: [
-						{ majors: { op: 'gt', value: majorFailuresAllowed }, minors: { op: 'gte', value: 0 } },
-						{ majors: { op: 'gte', value: 0 }, minors: { op: 'gt', value: minorFailuresAllowed } },
-					],
+		failureRules: failureRules.length > 0 ? failureRules : DEFAULT_FAILURE_RULES,
 		summerSchoolRules:
 			summerSchoolRules.length > 0
 				? summerSchoolRules
-				: [
-						{
-							majors: { op: 'gte', value: 1 },
-							minors: { op: 'gte', value: oneMajorWithMinorFailuresAllowed },
-						},
-					],
+				: DEFAULT_SUMMER_SCHOOL_RULES,
 	};
 }
 

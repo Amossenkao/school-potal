@@ -71,9 +71,6 @@ export interface SchoolFormState {
 			givesDoublePromotion: boolean;
 			failureRules: GradingRule[];
 			summerSchoolRules: GradingRule[];
-			majorFailuresAllowed?: number;
-			minorFailuresAllowed?: number;
-			oneMajorWithMinorFailuresAllowed?: number;
 		};
 		isHighSchool: boolean;
 		nextClassAfterLast?: { classId: string; className: string };
@@ -113,7 +110,7 @@ export const defaultFormState: SchoolFormState = {
 	identity: { name: '', shortName: '', initials: '', slogan: '', studentIdPrefix: '', yearFounded: '', firstAcademicYear: '', currentAcademicYear: '' },
 	branding: { logoUrl: '', logoUrl2: '', themeName: DEFAULT_TENANT_THEME_NAME, reportCardThemes: {} },
 	contact: { addresses: [], phones: [], emails: [], website: '' },
-	academicConfig: { classLevels: {}, gradingSettings: { passMark: 70, gradeScale: { min: 60, max: 100 }, hasSummerSchool: false, givesDoublePromotion: false, failureRules: [{ majors: { op: 'gte', value: 2 }, minors: { op: 'gte', value: 0 } }], summerSchoolRules: [{ majors: { op: 'gte', value: 1 }, minors: { op: 'gte', value: 1 } }], majorFailuresAllowed: 0, minorFailuresAllowed: 2, oneMajorWithMinorFailuresAllowed: 1 }, isHighSchool: false, nextClassAfterLast: { classId: '', className: '' } },
+	academicConfig: { classLevels: {}, gradingSettings: { passMark: 70, gradeScale: { min: 60, max: 100 }, hasSummerSchool: false, givesDoublePromotion: false, failureRules: [{ majors: { op: 'gte', value: 2 }, minors: { op: 'gte', value: 0 } }], summerSchoolRules: [{ majors: { op: 'gte', value: 1 }, minors: { op: 'gte', value: 1 } }] }, isHighSchool: false, nextClassAfterLast: { classId: '', className: '' } },
 	userConfig: {
 		administrativePositions: [...DEFAULT_ADMIN_POSITIONS],
 		sysAdmin: { name: '', phone: '', email: '' },
@@ -393,6 +390,13 @@ function validateStep(stepIndex: number, form: SchoolFormState): StepErrors {
 		) {
 			errors['academicConfig.gradingSettings.summerSchoolRules'] =
 				'At least one summer-school rule is required when summer school is enabled';
+		}
+		if (
+			!form.academicConfig.isHighSchool &&
+			!(form.academicConfig.nextClassAfterLast?.className || '').trim()
+		) {
+			errors['academicConfig.nextClassAfterLast'] =
+				'Next class after last is required when the school is not a high school';
 		}
 	}
 
@@ -873,6 +877,7 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 										rules={form.academicConfig.gradingSettings.summerSchoolRules}
 										onChange={(rules) => update('academicConfig.gradingSettings.summerSchoolRules', rules)}
 										dimmed={!form.academicConfig.gradingSettings.hasSummerSchool}
+										disabled={!form.academicConfig.gradingSettings.hasSummerSchool}
 									/>
 									<GradingRulesEditor
 										title="Failure Rules"
@@ -909,6 +914,7 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 										<p className="mt-1 text-[10px] text-gray-400">
 											Students promoted past the school's last class move on to this class (e.g. when continuing at another school). Class id: <span className="font-mono">{derivedId || '—'}</span>
 										</p>
+										{errors['academicConfig.nextClassAfterLast'] && <p className="text-[11px] text-red-500 mt-1">{errors['academicConfig.nextClassAfterLast']}</p>}
 									</div>
 								);
 							})()}
@@ -2218,17 +2224,17 @@ function CompactToggle({ label, checked, onChange }: { label: string; checked: b
 	);
 }
 
-function AddButton({ label, onClick }: { label: string; onClick: () => void }) {
+function AddButton({ label, onClick, disabled }: { label: string; onClick: () => void; disabled?: boolean }) {
 	return (
-		<button onClick={onClick} className="inline-flex items-center gap-1 text-[11px] font-medium text-[#465fff] hover:text-[#3a4fe6] transition-colors">
+		<button type="button" onClick={onClick} disabled={disabled} className={`inline-flex items-center gap-1 text-[11px] font-medium transition-colors ${disabled ? 'text-gray-300 cursor-not-allowed dark:text-gray-600' : 'text-[#465fff] hover:text-[#3a4fe6]'}`}>
 			<span className="text-base leading-none">+</span> {label}
 		</button>
 	);
 }
 
-function RemoveRow({ onClick }: { onClick: () => void }) {
+function RemoveRow({ onClick, disabled }: { onClick: () => void; disabled?: boolean }) {
 	return (
-		<button onClick={onClick} className="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors dark:hover:bg-red-900/20 shrink-0">
+		<button type="button" onClick={onClick} disabled={disabled} className={`p-1.5 rounded-md transition-colors shrink-0 ${disabled ? 'text-gray-300 cursor-not-allowed dark:text-gray-600' : 'text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20'}`}>
 			<Trash2 className="h-3.5 w-3.5" />
 		</button>
 	);
@@ -2242,12 +2248,13 @@ const GRADING_RULE_OPERATORS: { op: GradingRuleOperator; label: string }[] = [
 	{ op: 'eq', label: 'exactly' },
 ];
 
-function GradingRulesEditor({ title, description, rules, onChange, dimmed }: {
+function GradingRulesEditor({ title, description, rules, onChange, dimmed, disabled }: {
 	title: string;
 	description: string;
 	rules: GradingRule[];
 	onChange: (rules: GradingRule[]) => void;
 	dimmed?: boolean;
+	disabled?: boolean;
 }) {
 	const updateComparison = (
 		index: number,
@@ -2284,13 +2291,13 @@ function GradingRulesEditor({ title, description, rules, onChange, dimmed }: {
 								{count === 'majors' ? 'Failed majors' : 'Failed minors'}
 							</label>
 							<div className="flex items-center gap-1 mt-0.5">
-								<select value={comp.op} onChange={(e) => updateComparison(index, count, 'op', e.target.value as GradingRuleOperator)}
-									className="w-[76px] shrink-0 rounded border border-gray-200 bg-white px-1 py-1 text-[10px] outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white">
+								<select value={comp.op} onChange={(e) => updateComparison(index, count, 'op', e.target.value as GradingRuleOperator)} disabled={disabled}
+									className={`w-[76px] shrink-0 rounded border border-gray-200 bg-white px-1 py-1 text-[10px] outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}>
 									{GRADING_RULE_OPERATORS.map((o) => <option key={o.op} value={o.op}>{o.label}</option>)}
 								</select>
-								<input type="number" inputMode="numeric" min={0} value={String(comp.value)}
+								<input type="number" inputMode="numeric" min={0} value={String(comp.value)} disabled={disabled}
 									onChange={(e) => updateComparison(index, count, 'value', Number(e.target.value) || 0)}
-									className="w-full min-w-0 rounded border border-gray-200 bg-white px-1.5 py-1 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+									className={`w-full min-w-0 rounded border border-gray-200 bg-white px-1.5 py-1 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white ${disabled ? 'cursor-not-allowed opacity-50' : ''}`} />
 							</div>
 						</div>
 					);
@@ -2298,13 +2305,13 @@ function GradingRulesEditor({ title, description, rules, onChange, dimmed }: {
 						<div key={index} className="flex items-end gap-1.5 px-3 py-2">
 							{renderComparison('majors', rule.majors)}
 							{renderComparison('minors', rule.minors)}
-							<RemoveRow onClick={() => removeRule(index)} />
+							<RemoveRow onClick={() => removeRule(index)} disabled={disabled} />
 						</div>
 					);
 				})}
 			</div>
 			<div className="px-3 pb-2 pt-1">
-				<AddButton label="Add rule" onClick={addRule} />
+				<AddButton label="Add rule" onClick={addRule} disabled={disabled} />
 			</div>
 		</div>
 	);
