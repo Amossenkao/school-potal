@@ -1173,7 +1173,7 @@ export const SharedFilter = <T extends BaseFilters>({
 		totalSteps > 0 ? Math.round((doneSteps / totalSteps) * 100) : 0;
 
 	return (
-		<div className="flex items-start justify-center min-h-[60vh] pt-4 pb-10 bg-background px-4">
+		<div className="flex items-start justify-center min-h-[60vh] pb-10 bg-background px-4">
 			<div className="w-full max-w-4xl">
 				{/* Page-level header */}
 				<div className="mb-2">
